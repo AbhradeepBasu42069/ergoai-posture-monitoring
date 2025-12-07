@@ -1,0 +1,866 @@
+{% extends "base.html" %}
+
+{% block title %}Take a Break{% endblock %}
+{% block page_title %}Break & Wellness Hub{% endblock %}
+
+{% block head %}
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+    .break-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2.5rem;
+        padding: 1rem 0;
+    }
+
+    /* Timer Section */
+    .timer-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 2.5rem;
+        color: white;
+        text-align: center;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.2);
+    }
+
+    .timer-section h2 {
+        margin-top: 0;
+        font-size: 2rem;
+        margin-bottom: 2rem;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .timer-buttons {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .timer-btn {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid white;
+        color: white;
+        padding: 1rem;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        backdrop-filter: blur(10px);
+    }
+
+    .timer-btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .timer-btn.active {
+        background: white;
+        color: #667eea;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    }
+
+    .timer-display {
+        font-family: 'Courier New', monospace;
+        font-size: 4rem;
+        font-weight: bold;
+        margin: 2rem 0;
+        text-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+        letter-spacing: 4px;
+    }
+
+    .timer-controls {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+
+    .control-btn {
+        background: white;
+        color: #667eea;
+        border: none;
+        padding: 0.8rem 2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.95rem;
+        transition: all 0.3s;
+    }
+
+    .control-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .control-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Wellness Cards Grid */
+    .wellness-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+    }
+
+    .wellness-card {
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2rem;
+        transition: all 0.3s;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .wellness-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 40px rgba(0, 242, 234, 0.2);
+        border-color: var(--primary);
+    }
+
+    .wellness-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        transform: scaleX(0);
+        transition: transform 0.3s;
+    }
+
+    .wellness-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .card-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .card-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 0.8rem;
+        color: var(--primary);
+    }
+
+    .card-description {
+        color: #aaa;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        font-size: 0.95rem;
+    }
+
+    .card-details {
+        font-size: 0.85rem;
+        color: #777;
+        line-height: 1.8;
+        display: none;
+    }
+
+    .wellness-card.expanded .card-details {
+        display: block;
+    }
+
+    .expand-btn {
+        background: var(--primary);
+        color: black;
+        border: none;
+        padding: 0.5rem 1.2rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+    }
+
+    .expand-btn:hover {
+        background: var(--primary-bright);
+        transform: scale(1.05);
+    }
+
+    /* Exercise Cards */
+    .exercise-section {
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2rem;
+    }
+
+    .exercise-title {
+        font-size: 1.8rem;
+        margin-bottom: 1.5rem;
+        color: var(--primary);
+    }
+
+    .exercises-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .exercise-item {
+        background: rgba(0, 242, 234, 0.05);
+        border-left: 4px solid var(--primary);
+        padding: 1.5rem;
+        border-radius: 8px;
+        transition: all 0.3s;
+    }
+
+    .exercise-item:hover {
+        background: rgba(0, 242, 234, 0.1);
+        transform: translateX(5px);
+    }
+
+    .exercise-icon {
+        font-size: 2rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .exercise-name {
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: white;
+    }
+
+    .exercise-duration {
+        font-size: 0.85rem;
+        color: #aaa;
+        margin-bottom: 0.8rem;
+    }
+
+    .exercise-steps {
+        font-size: 0.9rem;
+        color: #bbb;
+        line-height: 1.6;
+    }
+
+    .exercise-steps li {
+        margin-bottom: 0.5rem;
+    }
+
+    /* Quick Tips */
+    .quick-tips {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        color: white;
+        margin-top: 2rem;
+    }
+
+    .quick-tips h3 {
+        font-size: 1.5rem;
+        margin-top: 0;
+        margin-bottom: 1.5rem;
+    }
+
+    .tips-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .tip-item {
+        background: rgba(255, 255, 255, 0.15);
+        padding: 1rem;
+        border-radius: 8px;
+        backdrop-filter: blur(10px);
+    }
+
+    .tip-icon {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .tip-text {
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+    /* Break Stats */
+    .break-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-box {
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        font-size: 0.85rem;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* Progress Ring */
+    .progress-ring {
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+        position: relative;
+    }
+
+    .progress-ring svg {
+        transform: rotate(-90deg);
+    }
+
+    .progress-ring-circle {
+        transition: stroke-dashoffset 0.5s;
+        stroke: #667eea;
+    }
+
+    .progress-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: var(--primary);
+    }
+
+    .progress-text span {
+        display: block;
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .timer-display {
+            font-size: 2.5rem;
+        }
+
+        .timer-buttons {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .wellness-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .timer-section {
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="break-container">
+    <!-- Timer Section -->
+    <div class="timer-section">
+        <h2><i class="fas fa-hourglass-start"></i> Break Timer</h2>
+
+        <div class="timer-buttons">
+            <button class="timer-btn" onclick="setTimer(5)">5 Min</button>
+            <button class="timer-btn" onclick="setTimer(10)">10 Min</button>
+            <button class="timer-btn" onclick="setTimer(30)">30 Min</button>
+            <button class="timer-btn" onclick="setTimer(60)">1 Hour</button>
+        </div>
+
+        <div class="timer-display" id="timerDisplay">00:00</div>
+
+        <div class="timer-controls">
+            <button class="control-btn" id="startBtn" onclick="startTimer()">Start</button>
+            <button class="control-btn" id="pauseBtn" onclick="pauseTimer()" disabled>Pause</button>
+            <button class="control-btn" id="resetBtn" onclick="resetTimer()">Reset</button>
+        </div>
+
+        <div style="font-size: 0.9rem; color: rgba(255,255,255,0.8);">
+            Take a moment to recharge. Step away from your desk and refresh your mind.
+        </div>
+    </div>
+
+    <!-- Break Statistics -->
+    <div class="break-stats">
+        <div class="stat-box">
+            <div class="stat-value" id="current-score">--</div>
+            <div class="stat-label">Current Score</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value" id="posture-status">--</div>
+            <div class="stat-label">Status</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value">20:20:20</div>
+            <div class="stat-label">Rule (20-20-20)</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-value" id="connection-status" style="color: #ff6b6b;">OFFLINE</div>
+            <div class="stat-label">Connection</div>
+        </div>
+    </div>
+
+    <!-- Wellness Categories -->
+    <h3 style="font-size: 1.8rem; margin-bottom: 1.5rem;">
+        <i class="fas fa-spa"></i> Wellness Activities
+    </h3>
+
+    <div class="wellness-grid">
+        <!-- Card 1: Stretching -->
+        <div class="wellness-card">
+            <div class="card-icon">💪</div>
+            <div class="card-title">Neck & Shoulder Stretches</div>
+            <div class="card-description">
+                Loosen tension from extended periods at your desk
+            </div>
+            <div class="card-details">
+                <strong>Benefits:</strong> Reduces muscle tension, improves flexibility, relieves headaches.
+                <br><br>
+                <strong>How to:</strong>
+                <ul style="margin: 0; padding-left: 1.2rem;">
+                    <li>Neck rolls: Rotate slowly 10 times each direction</li>
+                    <li>Shoulder shrugs: Lift shoulders to ears, hold 2 sec, repeat 15 times</li>
+                    <li>Neck tilt: Tilt ear toward shoulder, hold 20 seconds each side</li>
+                    <li>Chest opener: Clasp hands behind back, straighten arms, hold 30 seconds</li>
+                </ul>
+                <strong>Duration:</strong> 3-5 minutes
+            </div>
+            <button class="expand-btn" onclick="toggleCard(this)">Learn More</button>
+        </div>
+
+        <!-- Card 2: Eye Care -->
+        <div class="wellness-card">
+            <div class="card-icon">👁️</div>
+            <div class="card-title">Eye Relaxation (20-20-20)</div>
+            <div class="card-description">
+                Follow the golden rule for digital eye strain relief
+            </div>
+            <div class="card-details">
+                <strong>The Rule:</strong> Every 20 minutes, look at something 20 feet away for 20 seconds.
+                <br><br>
+                <strong>Additional Exercises:</strong>
+                <ul style="margin: 0; padding-left: 1.2rem;">
+                    <li>Blinking: Blink 10 times slowly and deliberately</li>
+                    <li>Palming: Cover eyes with palms, keep eyes closed 1 minute</li>
+                    <li>Eye circles: Move eyes in slow circles, 10 reps each direction</li>
+                    <li>Focus shifts: Alternate focus near-far 10 times</li>
+                </ul>
+                <strong>Prevents:</strong> Computer Vision Syndrome, dry eyes, fatigue
+            </div>
+            <button class="expand-btn" onclick="toggleCard(this)">Learn More</button>
+        </div>
+
+        <!-- Card 3: Hydration -->
+        <div class="wellness-card">
+            <div class="card-icon">💧</div>
+            <div class="card-title">Stay Hydrated</div>
+            <div class="card-description">
+                Drink water and maintain optimal body hydration
+            </div>
+            <div class="card-details">
+                <strong>Why It Matters:</strong> Proper hydration improves focus, energy, and reduces fatigue.
+                <br><br>
+                <strong>Hydration Goals:</strong>
+                <ul style="margin: 0; padding-left: 1.2rem;">
+                    <li>Drink 8-10 glasses of water daily</li>
+                    <li>Drink before you feel thirsty</li>
+                    <li>Set hourly reminders (use your break timer!)</li>
+                    <li>Include herbal tea or coconut water for variety</li>
+                    <li>Avoid excessive caffeine and sugar</li>
+                </ul>
+                <strong>Pro Tip:</strong> Keep a water bottle at your desk for easy access
+            </div>
+            <button class="expand-btn" onclick="toggleCard(this)">Learn More</button>
+        </div>
+
+        <!-- Card 4: Mind Reset -->
+        <div class="wellness-card">
+            <div class="card-icon">🧘</div>
+            <div class="card-title">Mindfulness & Meditation</div>
+            <div class="card-description">
+                Calm your mind and reduce stress during breaks
+            </div>
+            <div class="card-details">
+                <strong>Simple Breathing Exercise (5 min):</strong>
+                <ul style="margin: 0; padding-left: 1.2rem;">
+                    <li>Find a quiet space, sit comfortably</li>
+                    <li>Breathe in for 4 counts</li>
+                    <li>Hold breath for 4 counts</li>
+                    <li>Exhale slowly for 6 counts</li>
+                    <li>Repeat 10 times</li>
+                </ul>
+                <strong>Benefits:</strong> Lower stress levels, improved focus, better sleep, enhanced creativity
+            </div>
+            <button class="expand-btn" onclick="toggleCard(this)">Learn More</button>
+        </div>
+
+        <!-- Card 5: Movement & Steps -->
+        <div class="wellness-card">
+            <div class="card-icon">🚶</div>
+            <div class="card-title">Walk & Movement</div>
+            <div class="card-description">
+                Get your body moving with light exercise
+            </div>
+            <div class="card-details">
+                <strong>Break Movement Ideas:</strong>
+                <ul style="margin: 0; padding-left: 1.2rem;">
+                    <li>Quick walk: Walk 5-10 minutes around your space</li>
+                    <li>Stairs: Climb stairs 2-3 times</li>
+                    <li>Stand-ups: Perform 10 standing squats</li>
+                    <li>Arm circles: 20 reps forward, 20 reps backward</li>
+                    <li>Light jog in place: 1-2 minutes to elevate heart rate</li>
+                </ul>
+                <strong>Goal:</strong> Get 150 min of moderate activity weekly
+            </div>
+            <button class="expand-btn" onclick="toggleCard(this)">Learn More</button>
+        </div>
+
+        <!-- Card 6: Nutrition & Snacking -->
+        <div class="wellness-card">
+            <div class="card-icon">🥗</div>
+            <div class="card-title">Healthy Break Snacks</div>
+            <div class="card-description">
+                Fuel your body with nutritious choices
+            </div>
+            <div class="card-details">
+                <strong>Healthy Snack Options:</strong>
+                <ul style="margin: 0; padding-left: 1.2rem;">
+                    <li>Fruits: Apples, bananas, berries (natural sugars)</li>
+                    <li>Nuts: Almonds, walnuts (protein, healthy fats)</li>
+                    <li>Yogurt: High in probiotics and protein</li>
+                    <li>Vegetables: Carrots, celery with hummus</li>
+                    <li>Dark chocolate: 70%+ cocoa for antioxidants</li>
+                </ul>
+                <strong>Avoid:</strong> Sugary drinks, fried foods, excessive caffeine after 3 PM
+            </div>
+            <button class="expand-btn" onclick="toggleCard(this)">Learn More</button>
+        </div>
+    </div>
+
+    <!-- Exercise Section -->
+    <div class="exercise-section">
+        <h2 class="exercise-title">
+            <i class="fas fa-dumbbell"></i> Quick Office Exercises (5-10 mins)
+        </h2>
+
+        <div class="exercises-list">
+            <div class="exercise-item">
+                <div class="exercise-icon">🧘‍♀️</div>
+                <div class="exercise-name">Desk Yoga</div>
+                <div class="exercise-duration">5-7 minutes</div>
+                <div class="exercise-steps">
+                    <ol style="margin: 0; padding-left: 1rem;">
+                        <li>Seated spinal twist</li>
+                        <li>Wrist circles and stretches</li>
+                        <li>Forward fold (sitting)</li>
+                        <li>Shoulder rolls</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="exercise-item">
+                <div class="exercise-icon">💪</div>
+                <div class="exercise-name">Bodyweight Circuit</div>
+                <div class="exercise-duration">8-10 minutes</div>
+                <div class="exercise-steps">
+                    <ol style="margin: 0; padding-left: 1rem;">
+                        <li>10 Push-ups</li>
+                        <li>15 Squats</li>
+                        <li>10 Tricep dips</li>
+                        <li>30 sec Plank</li>
+                        <li>Repeat 2x</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="exercise-item">
+                <div class="exercise-icon">🏃</div>
+                <div class="exercise-name">Walking Break</div>
+                <div class="exercise-duration">10-15 minutes</div>
+                <div class="exercise-steps">
+                    <ol style="margin: 0; padding-left: 1rem;">
+                        <li>Warm up: 2 min slow walk</li>
+                        <li>Main: 5-8 min brisk walk</li>
+                        <li>Cool down: 3-5 min slow walk</li>
+                        <li>Aim for 10k steps daily</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="exercise-item">
+                <div class="exercise-icon">🤸</div>
+                <div class="exercise-name">Flexibility Routine</div>
+                <div class="exercise-duration">7-10 minutes</div>
+                <div class="exercise-steps">
+                    <ol style="margin: 0; padding-left: 1rem;">
+                        <li>Hamstring stretches: 30 sec</li>
+                        <li>Hip openers: 30 sec each side</li>
+                        <li>Back stretches: 30 sec</li>
+                        <li>Arm stretches: 30 sec</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="exercise-item">
+                <div class="exercise-icon">🧠</div>
+                <div class="exercise-name">Mental Break</div>
+                <div class="exercise-duration">5-10 minutes</div>
+                <div class="exercise-steps">
+                    <ol style="margin: 0; padding-left: 1rem;">
+                        <li>Find quiet space</li>
+                        <li>Box breathing: 4-4-6-4</li>
+                        <li>Guided meditation app</li>
+                        <li>Journaling or doodling</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="exercise-item">
+                <div class="exercise-icon">🎵</div>
+                <div class="exercise-name">Music & Dance</div>
+                <div class="exercise-duration">5-7 minutes</div>
+                <div class="exercise-steps">
+                    <ol style="margin: 0; padding-left: 1rem;">
+                        <li>Put on upbeat music</li>
+                        <li>Dance or move freely</li>
+                        <li>Elevate heart rate</li>
+                        <li>Release endorphins</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Tips Section -->
+    <div class="quick-tips">
+        <h3><i class="fas fa-lightbulb"></i> Quick Wellness Tips</h3>
+        <div class="tips-grid">
+            <div class="tip-item">
+                <div class="tip-icon">🌞</div>
+                <div class="tip-text"><strong>Natural Light:</strong> Spend time near windows for vitamin D and circadian rhythm regulation</div>
+            </div>
+            <div class="tip-item">
+                <div class="tip-icon">🎵</div>
+                <div class="tip-text"><strong>Music:</strong> Listen to binaural beats or nature sounds to reduce stress</div>
+            </div>
+            <div class="tip-item">
+                <div class="tip-icon">📱</div>
+                <div class="tip-text"><strong>No Screens:</strong> Avoid phone/computer during breaks—let your eyes rest</div>
+            </div>
+            <div class="tip-item">
+                <div class="tip-icon">😴</div>
+                <div class="tip-text"><strong>Power Nap:</strong> 10-20 min nap can boost alertness and creativity</div>
+            </div>
+            <div class="tip-item">
+                <div class="tip-icon">🏢</div>
+                <div class="tip-text"><strong>Change Scenery:</strong> Move to a different room or outdoor space</div>
+            </div>
+            <div class="tip-item">
+                <div class="tip-icon">👥</div>
+                <div class="tip-text"><strong>Social Time:</strong> Chat with colleagues—social interaction boosts mood</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Break Recommendations -->
+    <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; margin-top: 2rem;">
+        <h3 style="margin-top: 0; color: var(--primary);">
+            <i class="fas fa-check-circle"></i> Daily Break Schedule
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+            <div style="background: rgba(0, 242, 234, 0.05); padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--primary);">
+                <strong style="color: var(--primary);">Morning (9 AM - 12 PM)</strong>
+                <div style="margin-top: 0.5rem; color: #aaa;">2-3 short breaks (5 min each) + 1 medium break (15 min)</div>
+            </div>
+            <div style="background: rgba(0, 242, 234, 0.05); padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--primary);">
+                <strong style="color: var(--primary);">Afternoon (1 PM - 5 PM)</strong>
+                <div style="margin-top: 0.5rem; color: #aaa;">3-4 short breaks (5 min each) + 1 long break (30 min lunch)</div>
+            </div>
+            <div style="background: rgba(0, 242, 234, 0.05); padding: 1.5rem; border-radius: 8px; border-left: 4px solid var(--primary);">
+                <strong style="color: var(--primary);">Evening (5 PM - 8 PM)</strong>
+                <div style="margin-top: 0.5rem; color: #aaa;">1-2 short breaks (5 min each) + Wind down routine</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    try {
+        let timerInterval = null;
+        let totalSeconds = 0;
+        let remainingSeconds = 0;
+        let isRunning = false;
+
+        // Socket.IO integration for real-time posture data
+        if (typeof io !== 'undefined') {
+            const socket = io();
+
+            socket.on('connect', () => {
+                console.log('Break page Socket.IO connected');
+                document.getElementById('connection-status').textContent = 'ONLINE';
+                document.getElementById('connection-status').style.color = '#00ff9d';
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Break page Socket.IO disconnected');
+                document.getElementById('connection-status').textContent = 'OFFLINE';
+                document.getElementById('connection-status').style.color = '#ff6b6b';
+            });
+
+            socket.on('stats_update', (data) => {
+                try {
+                    const score = Math.round(data.score || 0);
+                    const status = (data.status || 'UNKNOWN').toUpperCase();
+                    
+                    document.getElementById('current-score').textContent = score;
+                    document.getElementById('posture-status').textContent = status;
+
+                    // Color code the score
+                    const scoreElem = document.getElementById('current-score');
+                    if (score >= 90) {
+                        scoreElem.style.color = '#28a745';
+                    } else if (score >= 75) {
+                        scoreElem.style.color = '#00f2ea';
+                    } else if (score >= 50) {
+                        scoreElem.style.color = '#ffae42';
+                    } else {
+                        scoreElem.style.color = '#ff3864';
+                    }
+                } catch (e) {
+                    console.error('Error updating break page stats:', e);
+                }
+            });
+        } else {
+            console.warn('Socket.IO not available on break page');
+        }
+
+        // Timer functions
+        function setTimer(minutes) {
+            if (isRunning) pauseTimer();
+            totalSeconds = minutes * 60;
+            remainingSeconds = totalSeconds;
+            updateDisplay();
+            updateButtonStates();
+            
+            document.querySelectorAll('.timer-btn').forEach(btn => btn.classList.remove('active'));
+            if (event && event.target) event.target.classList.add('active');
+        }
+
+        function startTimer() {
+            if (isRunning || remainingSeconds === 0) return;
+            
+            isRunning = true;
+            updateButtonStates();
+
+            timerInterval = setInterval(() => {
+                remainingSeconds--;
+                updateDisplay();
+
+                if (remainingSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    isRunning = false;
+                    updateButtonStates();
+                    playNotification();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            updateButtonStates();
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            remainingSeconds = 0;
+            totalSeconds = 0;
+            updateDisplay();
+            updateButtonStates();
+            document.querySelectorAll('.timer-btn').forEach(btn => btn.classList.remove('active'));
+        }
+
+        function updateDisplay() {
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            const display = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            document.getElementById('timerDisplay').textContent = display;
+        }
+
+        function updateButtonStates() {
+            document.getElementById('startBtn').disabled = remainingSeconds === 0 || isRunning;
+            document.getElementById('pauseBtn').disabled = !isRunning;
+        }
+
+        function toggleCard(btn) {
+            const card = btn.closest('.wellness-card');
+            if (!card) return;
+            card.classList.toggle('expanded');
+            btn.textContent = card.classList.contains('expanded') ? 'Show Less' : 'Learn More';
+        }
+
+        function playNotification() {
+            const display = document.getElementById('timerDisplay');
+            display.style.color = '#ff6b6b';
+            display.style.animation = 'pulse 0.5s infinite';
+            
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                
+                oscillator.connect(gain);
+                gain.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5);
+            } catch (e) {
+                console.warn('Audio notification not available:', e);
+            }
+
+            setTimeout(() => {
+                display.style.color = 'white';
+                display.style.animation = 'none';
+            }, 2000);
+        }
+
+        // Initialize
+        updateDisplay();
+        updateButtonStates();
+
+        // Add pulse animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.7; }
+            }
+        `;
+        document.head.appendChild(style);
+
+    } catch (e) {
+        console.error('Break page initialization error:', e);
+    }
+</script>
+{% endblock %}

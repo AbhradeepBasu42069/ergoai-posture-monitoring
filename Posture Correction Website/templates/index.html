@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+
+{% block title %}Live Analysis{% endblock %}
+{% block page_title %}Active Session{% endblock %}
+
+{% block head %}
+<style>
+    .dash-grid {
+        display: grid;
+        grid-template-columns: 2.5fr 1fr;
+        gap: 1.5rem;
+        height: 100%;
+    }
+
+    .video-box {
+        width: 100%;
+        height: 100%;
+        background: #000;
+        border-radius: 16px;
+        overflow: hidden;
+        position: relative;
+        border: 1px solid var(--border);
+        box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    #video-feed {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .overlay-score {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(5px);
+        padding: 10px 20px;
+        border-radius: 30px;
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .widget-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        height: 100%;
+    }
+
+    .stat-card {
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.2rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .icon-box {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.05);
+        margin-bottom: 0.5rem;
+    }
+
+    .score-circle {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        border: 8px solid #222;
+        border-top: 8px solid var(--primary);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        position: relative;
+        transition: border-color 0.5s;
+    }
+
+    .controls {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        padding: 5px;
+        border-radius: 30px;
+        display: flex;
+        gap: 5px;
+        border: 1px solid var(--border);
+    }
+
+    /* Break Button & Popup */
+    .break-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 50%;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        transition: all 0.3s;
+        z-index: 100;
+    }
+
+    .break-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 8px 30px rgba(102, 126, 234, 0.6);
+    }
+
+    .break-btn:active {
+        transform: scale(0.95);
+    }
+
+    /* Popup Modal */
+    .break-popup {
+        position: fixed;
+        bottom: 100px;
+        right: 30px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        z-index: 101;
+        min-width: 300px;
+        display: none;
+        animation: slideUp 0.3s ease-out;
+    }
+
+    .break-popup.active {
+        display: block;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .popup-title {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .popup-timers {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.8rem;
+        margin-bottom: 1rem;
+    }
+
+    .popup-timer-btn {
+        background: rgba(0, 242, 234, 0.1);
+        border: 1px solid var(--primary);
+        color: var(--primary);
+        padding: 0.8rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+    }
+
+    .popup-timer-btn:hover {
+        background: var(--primary);
+        color: black;
+        transform: translateY(-2px);
+    }
+
+    .popup-link {
+        display: block;
+        padding: 0.8rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-align: center;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.2s;
+        cursor: pointer;
+        margin-bottom: 0.5rem;
+    }
+
+    .popup-link:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .close-popup {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        color: #888;
+        font-size: 1.5rem;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+
+    .close-popup:hover {
+        color: var(--primary);
+    }
+
+    .btn-ctrl {
+        background: transparent;
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-ctrl:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-ctrl.active {
+        background: var(--primary);
+        color: #000;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash-grid">
+    <!-- Live Video Feed -->
+    <div class="video-box">
+        <img id="video-feed" src="{{ url_for('video_feed') }}">
+
+        <div class="overlay-score">
+            <div
+                style="width: 10px; height: 10px; background: var(--success); border-radius: 50%; box-shadow: 0 0 10px var(--success);">
+            </div>
+            <span style="font-family: var(--font-head); font-size: 1.2rem;" id="live-score">0</span>
+            <span style="font-size: 0.8rem; color: #aaa;">/ 100</span>
+        </div>
+
+        <div class="controls">
+            <button class="btn-ctrl" onclick="toggleCamera()" id="btn-cam">
+                <i class="fas fa-stop"></i> Stop
+            </button>
+            <button class="btn-ctrl" onclick="takeSnapshot()">
+                <i class="fas fa-camera"></i> Snap
+            </button>
+        </div>
+    </div>
+
+    <!-- Right Column: Details -->
+    <div class="widget-grid">
+        <!-- Main Score Card -->
+        <div class="card" style="text-align: center; padding: 2rem 1rem;">
+            <div class="score-circle" id="score-circle">
+                <div style="font-size: 0.9rem; color: #888; margin-bottom: 5px;">POSTURE SCORE</div>
+                <div style="font-family: var(--font-head); font-size: 2.5rem; color: var(--text-main);"
+                    id="main-score-val">--</div>
+            </div>
+            <div style="margin-top: 1rem; color: var(--primary); font-weight: bold;" id="status-text">CALIBRATING...
+            </div>
+        </div>
+
+        <!-- Detail Widgets -->
+        <div class="stat-card">
+            <div class="flex-between">
+                <div class="icon-box" style="color: #ff9d00;"><i class="fas fa-user"></i></div>
+                <span style="font-family: var(--font-head); color: #ff9d00;" id="lean-val">0°</span>
+            </div>
+            <div style="margin-top: 5px; font-size: 0.9rem;">Body Lean</div>
+            <div style="font-size: 0.7rem; color: #666; margin-top: 2px;">Keep < 15°</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="flex-between">
+                    <div class="icon-box" style="color: #00f2ea;"><i class="fas fa-arrows-alt-h"></i></div>
+                    <span style="font-family: var(--font-head); color: #00f2ea;" id="asym-val">0px</span>
+                </div>
+                <div style="margin-top: 5px; font-size: 0.9rem;">Shoulder Level</div>
+                <div style="font-size: 0.7rem; color: #666; margin-top: 2px;">Keep < 5px</div>
+                </div>
+
+                <!-- NEW METRICS -->
+                <div class="stat-card">
+                    <div class="flex-between">
+                        <div class="icon-box" style="color: #ff0055;"><i class="fas fa-head-side-mask"></i></div>
+                        <span style="font-family: var(--font-head); color: #ff0055;" id="head-ang-val">0°</span>
+                    </div>
+                    <div style="margin-top: 5px; font-size: 0.9rem;">Neck Inclination</div>
+                    <div style="font-size: 0.7rem; color: #666; margin-top: 2px;">Keep < 15°</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="flex-between">
+                            <div class="icon-box" style="color: #bc00ff;"><i class="fas fa-undo"></i></div>
+                            <span style="font-family: var(--font-head); color: #bc00ff;" id="tilt-val">0°</span>
+                        </div>
+                        <div style="margin-top: 5px; font-size: 0.9rem;">Head Tilt</div>
+                        <div style="font-size: 0.7rem; color: #666; margin-top: 2px;">Keep < 8°</div>
+                        </div>
+                    </div>
+                    {% endblock %}
+
+                    <!-- Break Button & Popup (Fixed Position) -->
+                    <button class="break-btn" id="breakBtn" onclick="toggleBreakPopup()">
+                        <i class="fas fa-coffee"></i>
+                    </button>
+
+                    <div class="break-popup" id="breakPopup">
+                        <button class="close-popup" onclick="toggleBreakPopup()">×</button>
+                        <div class="popup-title">
+                            <i class="fas fa-spa"></i> Time for a Break?
+                        </div>
+                        <div class="popup-timers">
+                            <button class="popup-timer-btn" onclick="startQuickBreak(5)">5 Min</button>
+                            <button class="popup-timer-btn" onclick="startQuickBreak(10)">10 Min</button>
+                            <button class="popup-timer-btn" onclick="startQuickBreak(30)">30 Min</button>
+                            <button class="popup-timer-btn" onclick="startQuickBreak(60)">1 Hour</button>
+                        </div>
+                        <p style="font-size: 0.9rem; color: #aaa; margin: 1rem 0;">Or explore wellness activities:</p>
+                        <a href="/break" class="popup-link" onclick="toggleBreakPopup()">
+                            <i class="fas fa-book"></i> Full Break Guide
+                        </a>
+                        <p style="font-size: 0.8rem; color: #666; text-align: center; margin-top: 0.8rem;">
+                            Remember: Regular breaks improve focus and posture!
+                        </p>
+                    </div>
+
+                    {% block scripts %}
+                    <script>
+                        let isCameraOn = true;
+
+                        function toggleCamera() {
+                            isCameraOn = !isCameraOn;
+                            const btn = document.getElementById('btn-cam');
+                            const img = document.getElementById('video-feed');
+
+                            socket.emit('toggle_camera', { active: isCameraOn });
+
+                            if (isCameraOn) {
+                                btn.innerHTML = '<i class="fas fa-stop"></i> Stop';
+                                btn.classList.remove('active');
+                                img.style.opacity = "1";
+                            } else {
+                                btn.innerHTML = '<i class="fas fa-play"></i> Start';
+                                btn.classList.add('active');
+                                img.style.opacity = "0.3";
+                            }
+                        }
+
+                        function takeSnapshot() {
+                            const img = document.getElementById('video-feed');
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.naturalWidth;
+                            canvas.height = img.naturalHeight;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0);
+
+                            const link = document.createElement('a');
+                            link.download = 'posture-snapshot.jpg';
+                            link.href = canvas.toDataURL('image/jpeg');
+                            link.click();
+                        }
+
+                        socket.on('stats_update', (data) => {
+                            // Update values
+                            const score = Math.round(data.score);
+                            document.getElementById('live-score').innerText = score;
+                            document.getElementById('main-score-val').innerText = score;
+                            document.getElementById('status-text').innerText = data.status;
+
+                            // Update Metrics
+                            document.getElementById('lean-val').innerText = Math.abs(data.metrics.body_lean || 0).toFixed(1) + "°";
+                            document.getElementById('asym-val').innerText = Math.abs(data.metrics.shoulder_asym || 0).toFixed(1) + "px";
+                            document.getElementById('head-ang-val').innerText = Math.abs(data.metrics.head_angle || 0).toFixed(1) + "°";
+                            document.getElementById('tilt-val').innerText = Math.abs(data.metrics.head_tilt || 0).toFixed(1) + "°";
+
+                            // Dynamic Colors based on score
+                            const circle = document.getElementById('score-circle');
+                            let color = '#00ff9d'; // Green
+                            if (score < 90) color = '#ffbf00'; // Orange
+                            if (score < 75) color = '#ff0055'; // Red
+
+                            circle.style.borderTopColor = color;
+                            document.getElementById('status-text').style.color = color;
+                        });
+                    </script>
+                    {% endblock %}

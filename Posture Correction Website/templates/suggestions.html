@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}AI Suggestions{% endblock %}
+{% block page_title %}Personalized Insights{% endblock %}
+
+{% block head %}
+<style>
+    .sugg-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+    }
+
+    .insight-card {
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .insight-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 1.5rem;
+    }
+
+    .insight-icon {
+        width: 50px;
+        height: 50px;
+        background: rgba(0, 242, 234, 0.1);
+        color: var(--primary);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+
+    .tip-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .tip-item {
+        background: rgba(255, 255, 255, 0.03);
+        border-left: 3px solid var(--primary);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border-radius: 0 8px 8px 0;
+    }
+
+    .contact-card {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+
+    .quote-box {
+        margin-top: 2rem;
+        padding: 2rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        text-align: center;
+        font-style: italic;
+        color: #ccc;
+        position: relative;
+    }
+
+    .quote-box::before {
+        content: '"';
+        font-size: 4rem;
+        position: absolute;
+        top: -20px;
+        left: 20px;
+        opacity: 0.2;
+    }
+
+    .btn-contact {
+        display: block;
+        width: 100%;
+        padding: 12px;
+        background: var(--primary);
+        color: black;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: bold;
+        margin-top: 10px;
+        transition: 0.3s;
+    }
+
+    .btn-contact:hover {
+        background: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sugg-grid">
+    <!-- Left: Analysis & Insights -->
+    <div>
+        <div class="insight-card">
+            <div class="insight-header">
+                <div class="insight-icon"><i class="fas fa-robot"></i></div>
+                <div>
+                    <h2 style="margin: 0;">AI Analysis: Upper Back Strain</h2>
+                    <div style="color: var(--warning); margin-top: 5px;">Detected Frequency: High</div>
+                </div>
+            </div>
+
+            <p style="color: #aaa; line-height: 1.6;">
+                Based on your last 3 sessions, our computer vision model has detected a consistent <strong>15° forward
+                    lean</strong>.
+                This puts approximately 27lbs of extra pressure on your cervical spine.
+            </p>
+
+            <h3 style="margin-top: 2rem;">Recommended Adjustments</h3>
+            <ul class="tip-list">
+                <li class="tip-item">
+                    <strong>Adjust Monitor Height</strong><br>
+                    Raise your monitor by 2-3 inches so the top 1/3 of the screen is at eye level.
+                </li>
+                <li class="tip-item">
+                    <strong>Chair Recline</strong><br>
+                    Tilt your chair back slightly (100°-110°) to offload spinal pressure.
+                </li>
+                <li class="tip-item">
+                    <strong>Vision Breaks</strong><br>
+                    Your blink rate decreases during focus. Follow the 20-20-20 rule.
+                </li>
+            </ul>
+        </div>
+
+        <div class="quote-box">
+            "Good posture is not just about standing tall; it's about standing confident. Your body language shapes who
+            you are."
+        </div>
+    </div>
+
+    <!-- Right: Professional Help -->
+    <div>
+        <h3 style="margin-top: 0;">Professional Support</h3>
+
+        <div class="contact-card" style="margin-bottom: 1.5rem;">
+            <div
+                style="width: 80px; height: 80px; background: #ddd; border-radius: 50%; margin: 0 auto 1rem auto; overflow: hidden;">
+                <img src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=300&q=80"
+                    style="width:100%; height:100%; object-fit:cover;">
+            </div>
+            <h4 style="margin: 0;">Dr. Emily Chen</h4>
+            <p style="color: #888; font-size: 0.9rem;">Orthopedic Specialist</p>
+            <div style="color: var(--success); font-size: 0.8rem; margin-bottom: 1rem;">Available Now</div>
+            <a href="#" class="btn-contact">Book Consultation</a>
+            <div style="margin-top: 10px; font-size: 0.8rem; color: #666;">+1 (555) 012-3456</div>
+        </div>
+
+        <div class="contact-card">
+            <div
+                style="width: 80px; height: 80px; background: #ddd; border-radius: 50%; margin: 0 auto 1rem auto; overflow: hidden;">
+                <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=300&q=80"
+                    style="width:100%; height:100%; object-fit:cover;">
+            </div>
+            <h4 style="margin: 0;">Mark Wilson</h4>
+            <p style="color: #888; font-size: 0.9rem;">Ergonomics Coach</p>
+            <a href="#" class="btn-contact"
+                style="background: transparent; border: 1px solid var(--border); color: white;">Message</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

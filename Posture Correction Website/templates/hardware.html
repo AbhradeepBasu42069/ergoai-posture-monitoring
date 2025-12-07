@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Hardware Hub{% endblock %}
+{% block page_title %}Device Telemetry{% endblock %}
+
+{% block head %}
+<style>
+    .hw-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        height: 100%;
+        max-height: 600px;
+    }
+
+    .hw-visual {
+        position: relative;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .hw-visual img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        /* Changed to contain to ensure whole image is seen */
+        z-index: 1;
+    }
+
+    .overlay-alert {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 0, 85, 0.4);
+        z-index: 2;
+        display: none;
+        /* Hidden by default */
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        backdrop-filter: blur(2px);
+        animation: pulse-red 1s infinite alternate;
+    }
+
+    @keyframes pulse-red {
+        from {
+            opacity: 0.5;
+            background: rgba(255, 0, 85, 0.2);
+        }
+
+        to {
+            opacity: 1;
+            background: rgba(255, 0, 85, 0.5);
+        }
+    }
+
+    .alert-text {
+        font-family: var(--font-head);
+        font-size: 3rem;
+        color: white;
+        text-transform: uppercase;
+        text-shadow: 0 0 20px black;
+    }
+
+    .data-grid {
+        display: grid;
+        grid-template-rows: repeat(3, 1fr);
+        gap: 1.5rem;
+    }
+
+    .sensor-card {
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: 0.3s;
+    }
+
+    .sensor-card:hover {
+        transform: translateY(-3px);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .sensor-label {
+        font-size: 0.9rem;
+        color: #888;
+        margin-bottom: 5px;
+    }
+
+    .sensor-val {
+        font-family: var(--font-head);
+        font-size: 2.2rem;
+        color: var(--primary);
+    }
+
+    .sensor-unit {
+        font-size: 1rem;
+        color: #666;
+    }
+
+    .log-box {
+        grid-column: 1 / -1;
+        background: black;
+        border: 1px solid #333;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.8rem;
+        color: #0f0;
+        padding: 1rem;
+        height: 150px;
+        overflow-y: auto;
+        margin-top: 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hw-container">
+    <!-- Left: Hardware Image & Alert Overlay -->
+    <div class="hw-visual" id="hw-vis">
+        <div class="overlay-alert" id="alert-overlay">
+            <i class="fas fa-exclamation-triangle fa-4x" style="color: white; margin-bottom: 20px;"></i>
+            <div class="alert-text">Bad Posture</div>
+        </div>
+        <!-- Use the absolute path if needed, but url_for static is better -->
+        <img src="{{ url_for('static', filename='images/hardware.jpeg') }}"
+            onerror="this.src='{{ url_for('static', filename='hardware.jpeg') }}';">
+    </div>
+
+    <!-- Right: Sensor Data -->
+    <div class="data-grid">
+        <div class="sensor-card">
+            <div>
+                <div class="sensor-label">SPINE ANGLE (PITCH)</div>
+                <div><span class="sensor-val" id="val-pitch">--</span> <span class="sensor-unit">deg</span></div>
+            </div>
+            <i class="fas fa-ruler-vertical fa-2x" style="color: #444;"></i>
+        </div>
+
+        <div class="sensor-card">
+            <div>
+                <div class="sensor-label">SLOUCH FACTOR</div>
+                <div><span class="sensor-val" id="val-slouch">--</span> <span class="sensor-unit">%</span></div>
+            </div>
+            <i class="fas fa-compress-arrows-alt fa-2x" style="color: #444;"></i>
+        </div>
+
+        <div class="sensor-card">
+            <div>
+                <div class="sensor-label">CONNECTION STATUS</div>
+                <div style="font-size: 1.5rem; font-weight: bold; color: var(--success);" id="val-conn">SEARCHING...
+                </div>
+            </div>
+            <i class="fas fa-plug fa-2x" style="color: #444;"></i>
+        </div>
+    </div>
+</div>
+
+<div class="log-box" id="serial-log">
+    > _INIT_SYSTEM...<br>
+    > WAITING FOR ARDUINO...
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updateHardware() {
+        fetch('/api/hardware_data')
+            .then(response => response.json())
+            .then(data => {
+                // Update Values
+                document.getElementById('val-pitch').innerText = data.pitch;
+                document.getElementById('val-slouch').innerText = data.slouch;
+
+                const connElem = document.getElementById('val-conn');
+                if (data.connected) {
+                    connElem.innerText = "CONNECTED (COM3)";
+                    connElem.style.color = "var(--success)";
+                } else {
+                    connElem.innerText = "SIMULATION MODE";
+                    connElem.style.color = "var(--warning)";
+                }
+
+                // ALERT LOGIC
+                const alertOverlay = document.getElementById('alert-overlay');
+                if (data.alert === 1) {
+                    alertOverlay.style.display = "flex";
+                    // Also make the card generic glow
+                    document.getElementById('hw-vis').classList.add('alert-glow');
+                } else {
+                    alertOverlay.style.display = "none";
+                    document.getElementById('hw-vis').classList.remove('alert-glow');
+                }
+
+                // Update Log
+                const logBox = document.getElementById('serial-log');
+                if (data.raw_log && data.raw_log.length > 0) {
+                    logBox.innerHTML = data.raw_log.map(l => `> ${l}`).join('<br>') + '<br>> _';
+                    logBox.scrollTop = logBox.scrollHeight;
+                }
+            })
+            .catch(err => console.error(err));
+    }
+
+    // Poll every 500ms
+    setInterval(updateHardware, 500);
+</script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+    // Socket.IO realtime listener — updates UI immediately (polling stays as fallback)
+    try {
+        const socket = io();
+        socket.on('connect', () => console.log('Socket.IO connected'));
+
+        socket.on('hardware_update', data => {
+            try {
+                if (data.pitch !== undefined) document.getElementById('val-pitch').innerText = data.pitch;
+                if (data.slouch !== undefined) document.getElementById('val-slouch').innerText = data.slouch;
+
+                const connElem = document.getElementById('val-conn');
+                if (data.connected) {
+                    connElem.innerText = "CONNECTED (COM3)";
+                    connElem.style.color = "var(--success)";
+                } else {
+                    connElem.innerText = "SIMULATION MODE";
+                    connElem.style.color = "var(--warning)";
+                }
+
+                const alertOverlay = document.getElementById('alert-overlay');
+                if (data.alert === 1) {
+                    alertOverlay.style.display = "flex";
+                } else {
+                    alertOverlay.style.display = "none";
+                }
+
+                if (data.raw_log && Array.isArray(data.raw_log)) {
+                    const logBox = document.getElementById('serial-log');
+                    logBox.innerHTML = data.raw_log.map(l => `> ${l}`).join('<br>') + '<br>> _';
+                    logBox.scrollTop = logBox.scrollHeight;
+                }
+            } catch (e) { console.error('hardware_update handler error', e); }
+        });
+    } catch (e) { console.warn('Socket.IO not available', e); }
+</script>
+{% endblock %}

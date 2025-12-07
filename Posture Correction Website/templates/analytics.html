@@ -1,0 +1,436 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics{% endblock %}
+{% block page_title %}Performance Analytics{% endblock %}
+
+{% block head %}
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .analytics-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    .chart-box {
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1.5rem;
+        height: 400px;
+        position: relative;
+    }
+
+    .leaderboard-box {
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1.5rem;
+    }
+
+    .rank-row {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        transition: 0.2s;
+    }
+
+    .rank-row:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .rank-num {
+        font-family: var(--font-head);
+        font-size: 1.2rem;
+        width: 40px;
+        color: #666;
+    }
+
+    .rank-row.top .rank-num {
+        color: var(--warning);
+        text-shadow: 0 0 10px rgba(255, 191, 0, 0.3);
+    }
+
+    .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #333;
+        margin-right: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .user-info {
+        flex: 1;
+    }
+
+    .u-name {
+        font-weight: 600;
+    }
+
+    .u-dept {
+        font-size: 0.8rem;
+        color: #888;
+    }
+
+    .u-score {
+        font-family: var(--font-head);
+        font-size: 1.2rem;
+        color: var(--success);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-container">
+    <!-- Chart Section -->
+    <div class="chart-box">
+        <div class="flex-between" style="margin-bottom: 1rem;">
+            <h3 style="margin: 0;">Session History (Last 5 Mins)</h3>
+            <div style="font-size: 0.8rem; color: #888;">Live Updates</div>
+        </div>
+        <canvas id="scoreChart"></canvas>
+    </div>
+
+    <!-- Distribution (Bar Charts for Posture Metrics) -->
+    <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; margin-top: 2rem;">
+        <h3 style="margin-top: 0; margin-bottom: 2rem; color: var(--primary);">
+            <i class="fas fa-chart-bar"></i> Posture Distribution & Metrics
+        </h3>
+
+        <!-- Bar Charts Grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+            <!-- Status Count Chart -->
+            <div style="position: relative; height: 300px;">
+                <canvas id="statusChart"></canvas>
+            </div>
+
+            <!-- Status Percentage Chart -->
+            <div style="position: relative; height: 300px;">
+                <canvas id="percentChart"></canvas>
+            </div>
+
+            <!-- Time in Each Status -->
+            <div style="position: relative; height: 300px;">
+                <canvas id="timeChart"></canvas>
+            </div>
+
+            <!-- Live Metrics Panel -->
+            <div style="background: rgba(0, 242, 234, 0.05); border: 1px solid var(--primary); border-radius: 12px; padding: 1.5rem;">
+                <h4 style="margin-top: 0; color: var(--primary); margin-bottom: 1rem;">Live Metrics</h4>
+                <div id="percent-list" style="font-size: 0.95rem; line-height: 2;">
+                    <div><strong>Excellent:</strong> <span style="color: #28a745;">-- %</span></div>
+                    <div><strong>Good:</strong> <span style="color: #00f2ea;">-- %</span></div>
+                    <div><strong>Fair:</strong> <span style="color: #ffae42;">-- %</span></div>
+                    <div><strong>Poor:</strong> <span style="color: #ff3864;">-- %</span></div>
+                    <hr style="border: none; border-top: 1px solid var(--border); margin: 1rem 0;">
+                    <div><strong>Total Events:</strong> <span id="total-events" style="color: var(--primary);">0</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Section -->
+    <div class="leaderboard-box">
+        <h3 style="margin-top: 0; margin-bottom: 1.5rem;">Company Leaderboard</h3>
+
+        <div class="rank-row top">
+            <div class="rank-num">1</div>
+            <div class="avatar"><i class="fas fa-user-astronaut"></i></div>
+            <div class="user-info">
+                <div class="u-name">Sarah Connor</div>
+                <div class="u-dept">Engineering</div>
+            </div>
+            <div class="u-score">98</div>
+        </div>
+
+        <div class="rank-row">
+            <div class="rank-num">2</div>
+            <div class="avatar"><i class="fas fa-user-tie"></i></div>
+            <div class="user-info">
+                <div class="u-name">John Smith</div>
+                <div class="u-dept">Sales</div>
+            </div>
+            <div class="u-score">94</div>
+        </div>
+
+        <div class="rank-row"
+            style="background: rgba(0, 242, 234, 0.05); border: 1px solid var(--primary-dim); border-radius: 8px;">
+            <div class="rank-num" style="color: var(--primary);">3</div>
+            <div class="avatar" style="background: var(--primary);"><span
+                    style="color:black; font-weight:bold;">YOU</span></div>
+            <div class="user-info">
+                <div class="u-name">Current Session</div>
+                <div class="u-dept">Development - Active</div>
+            </div>
+            <div class="u-score" id="my-rank-score">--</div>
+        </div>
+
+        <div class="rank-row">
+            <div class="rank-num">4</div>
+            <div class="avatar"><i class="fas fa-user"></i></div>
+            <div class="user-info">
+                <div class="u-name">Mike Ross</div>
+                <div class="u-dept">Legal</div>
+            </div>
+            <div class="u-score">82</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    try {
+        const ctx = document.getElementById('scoreChart');
+        if (!ctx) throw new Error('scoreChart canvas not found');
+
+        const MAX_POINTS = 300; // Reduced from 3000 to prevent lag
+        const labels = Array.from({ length: 50 }, (_, i) => i);
+        const dataPoints = Array.from({ length: 50 }, () => 80 + Math.random() * 10);
+
+        const chart = new Chart(ctx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Posture Score',
+                    data: dataPoints,
+                    borderColor: '#00f2ea',
+                    backgroundColor: 'rgba(0, 242, 234, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    y: { beginAtZero: false, min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    x: { display: false }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // === THREE BAR CHARTS ===
+        const STATUS_WINDOW = 300;
+        const statusWindow = [];
+
+        // Chart 1: Count Bar Chart
+        const statusCtx = document.getElementById('statusChart');
+        let statusChart = null;
+
+        if (statusCtx) {
+            statusChart = new Chart(statusCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Excellent', 'Good', 'Fair', 'Poor'],
+                    datasets: [{
+                        label: 'Count',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#28a745', '#00f2ea', '#ffae42', '#ff3864'],
+                        borderRadius: 8,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // Chart 2: Percentage Bar Chart
+        const percentCtx = document.getElementById('percentChart');
+        let percentChart = null;
+
+        if (percentCtx) {
+            percentChart = new Chart(percentCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Excellent', 'Good', 'Fair', 'Poor'],
+                    datasets: [{
+                        label: 'Percentage (%)',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#28a745', '#00f2ea', '#ffae42', '#ff3864'],
+                        borderRadius: 8,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    scales: {
+                        y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // Chart 3: Estimated Time Chart (seconds)
+        const timeCtx = document.getElementById('timeChart');
+        let timeChart = null;
+
+        if (timeCtx) {
+            timeChart = new Chart(timeCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: ['Excellent', 'Good', 'Fair', 'Poor'],
+                    datasets: [{
+                        label: 'Time (seconds)',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#28a745', '#00f2ea', '#ffae42', '#ff3864'],
+                        borderRadius: 8,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function computeCounts(win) {
+            const counts = { Excellent: 0, Good: 0, Fair: 0, Poor: 0 };
+            for (const s of win) {
+                if (s === 'EXCELLENT') counts.Excellent++;
+                else if (s === 'GOOD') counts.Good++;
+                else if (s === 'FAIR') counts.Fair++;
+                else if (s === 'POOR') counts.Poor++;
+            }
+            return counts;
+        }
+
+        function updatePercentList(counts, total) {
+            const elem = document.getElementById('percent-list');
+            if (!elem) return;
+            
+            const percent = (n) => ((n / total) * 100).toFixed(1);
+            const excellentEl = elem.querySelector('div:nth-child(1) span');
+            const goodEl = elem.querySelector('div:nth-child(2) span');
+            const fairEl = elem.querySelector('div:nth-child(3) span');
+            const poorEl = elem.querySelector('div:nth-child(4) span');
+            const totalEl = document.getElementById('total-events');
+
+            if (excellentEl) excellentEl.textContent = total > 0 ? percent(counts.Excellent) : '--';
+            if (goodEl) goodEl.textContent = total > 0 ? percent(counts.Good) : '--';
+            if (fairEl) fairEl.textContent = total > 0 ? percent(counts.Fair) : '--';
+            if (poorEl) poorEl.textContent = total > 0 ? percent(counts.Poor) : '--';
+            if (totalEl) totalEl.textContent = total;
+        }
+
+        if (typeof io !== 'undefined') {
+            const socket = io();
+            let lastUpdateTime = 0;
+            const UPDATE_THROTTLE = 100; // Update UI max every 100ms to prevent lag
+
+            socket.on('connect', () => console.log('Analytics Socket.IO connected'));
+
+            socket.on('stats_update', (data) => {
+                try {
+                    const score = Math.round(data.score || 0);
+                    const newData = chart.data.datasets[0].data;
+                    const newLabels = chart.data.labels;
+                    
+                    newData.push(score);
+                    newLabels.push('');
+                    if (newData.length > MAX_POINTS) {
+                        newData.shift();
+                        newLabels.shift();
+                    }
+                    chart.update('none');
+
+                    const rankElem = document.getElementById('my-rank-score');
+                    if (rankElem) rankElem.innerText = score;
+
+                    const status = (data.status || '').toString().toUpperCase();
+                    if (['EXCELLENT', 'GOOD', 'FAIR', 'POOR'].includes(status)) {
+                        statusWindow.push(status);
+                    } else {
+                        if (score >= 90) statusWindow.push('EXCELLENT');
+                        else if (score >= 75) statusWindow.push('GOOD');
+                        else if (score >= 50) statusWindow.push('FAIR');
+                        else statusWindow.push('POOR');
+                    }
+
+                    if (statusWindow.length > STATUS_WINDOW) statusWindow.shift();
+
+                    // Throttle chart updates
+                    const now = Date.now();
+                    if (now - lastUpdateTime > UPDATE_THROTTLE) {
+                        const counts = computeCounts(statusWindow);
+                        const total = statusWindow.length;
+
+                        // Update bar charts
+                        if (statusChart) {
+                            statusChart.data.datasets[0].data = [
+                                counts.Excellent, counts.Good, counts.Fair, counts.Poor
+                            ];
+                            statusChart.update('none');
+                        }
+
+                        if (percentChart) {
+                            const percent = (n) => total > 0 ? ((n / total) * 100) : 0;
+                            percentChart.data.datasets[0].data = [
+                                percent(counts.Excellent),
+                                percent(counts.Good),
+                                percent(counts.Fair),
+                                percent(counts.Poor)
+                            ];
+                            percentChart.update('none');
+                        }
+
+                        if (timeChart) {
+                            // Estimate time: assume ~1 sample per second
+                            timeChart.data.datasets[0].data = [
+                                counts.Excellent,
+                                counts.Good,
+                                counts.Fair,
+                                counts.Poor
+                            ];
+                            timeChart.update('none');
+                        }
+
+                        updatePercentList(counts, total);
+                        lastUpdateTime = now;
+                    }
+                } catch (e) {
+                    console.error('Error updating charts:', e);
+                }
+            });
+        } else {
+            console.warn('Socket.IO not available');
+        }
+    } catch (e) {
+        console.error('Analytics initialization error:', e);
+    }
+</script>
+{% endblock %}
